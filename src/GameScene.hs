@@ -8,12 +8,11 @@ module GameScene (
 import Game.Scene
 import Game.Sprite
 
-import ResultScene
-
 import Control.Lens
 import Control.Monad (when)
 import Control.Monad.IO.Class
 import Control.Monad.State
+import Control.Monad.Except
 import Graphics.Rendering.OpenGL
 import Graphics.Rendering.FTGL
 import qualified Graphics.Rendering.FTGL as FTGL
@@ -33,7 +32,7 @@ data SnakeDirection = Stop
                     | GoLeft
                     deriving (Show, Eq)
 
-data GameSceneState = GameSceneState {
+data SceneState = SceneState {
                       _stGridSize    :: GLfloat
                     , _stFeed        :: Sprite
                     , _stWall        :: [Sprite]
@@ -43,18 +42,21 @@ data GameSceneState = GameSceneState {
                     , _stScoreLabel  :: Sprite
                     }
 
-makeLenses ''GameSceneState
+makeLenses ''SceneState
 
-gameScene :: Scene GameSceneState ()
-gameScene = Scene {
-            construct = constructGameScene
-          , keyHandler = keyHandlerGameScene
-          , stepHandler = stepHandlerGameScene
-          , drawHandler = drawHandlerGameScene
-          }
+gameScene :: Scene Int
+gameScene = do
+    s <- liftIO $ initialSceneState
+    makeScene s sceneGen
 
-constructGameScene :: () -> IO GameSceneState
-constructGameScene () = do
+sceneGen :: SceneGen SceneState Int
+sceneGen = SceneGen { keyHandler  = keyHandler'
+                    , stepHandler = stepHandler'
+                    , drawHandler = drawHandler'
+                    }
+
+initialSceneState :: IO SceneState
+initialSceneState = do
     font <- createExtrudeFont "font/FreeSans.ttf"
     setFontFaceSize font 7 7
     setFontDepth font 1.0
@@ -73,7 +75,7 @@ constructGameScene () = do
                     , _spPos   = Vertex2 (snakeX * gridSizef) (snakeY * gridSizef)
                     , _spSize  = Vector2 gridSizef gridSizef
                     }
-    return $ GameSceneState {
+    return $ SceneState {
                _stGridSize    = gridSizef
              , _stFeed        = defaultSquareSprite {
                                   _spColor = Color4 1.0 0.5 0.5 1.0
@@ -97,8 +99,8 @@ constructGameScene () = do
                               }
              }
 
-keyHandlerGameScene :: GLFW.Key -> GLFW.KeyState -> GLFW.ModifierKeys -> StateT GameSceneState IO ()
-keyHandlerGameScene key keyState modifierKeys = do
+keyHandler' :: GLFW.Key -> GLFW.KeyState -> GLFW.ModifierKeys -> StateT SceneState IO ()
+keyHandler' key keyState modifierKeys = do
     direction <- use stDirection
     case key of
         GLFW.Key'Up    -> when (direction /= GoDown)  $ stDirection .= GoUp
@@ -111,8 +113,8 @@ keyHandlerGameScene key keyState modifierKeys = do
         GLFW.Key'A     -> when (direction /= GoRight) $ stDirection .= GoLeft
         _              -> return ()
 
-stepHandlerGameScene :: (forall s' i'. Scene s' i' -> i' -> StateT GameSceneState IO ()) -> Double -> StateT GameSceneState IO ()
-stepHandlerGameScene transit dt = do
+stepHandler' :: Double -> ExceptT Int (StateT SceneState IO) ()
+stepHandler' dt = do
     gridSizef <- use stGridSize
 
     -- Move Snake
@@ -160,13 +162,13 @@ stepHandlerGameScene transit dt = do
     wall  <- use stWall
     score <- (subtract 1) <$> use stSnakeLength
     if any ((snakeHead^.spPos)==) (map (view spPos) (snakeTail ++ wall))
-        then transit resultScene score
+        then exitScene score
         else return ()
 
     stScoreLabel.spText .= ("Score: " ++ show score)
 
-drawHandlerGameScene :: (Sprite -> IO ()) -> GameSceneState -> IO ()
-drawHandlerGameScene draw state = do
+drawHandler' :: (Sprite -> IO ()) -> SceneState -> IO ()
+drawHandler' draw state = do
     mapM_ draw $ state ^. stWall
     mapM_ draw $ state ^. stSnake
     draw $ state ^. stFeed

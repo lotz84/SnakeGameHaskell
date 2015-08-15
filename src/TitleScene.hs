@@ -8,40 +8,36 @@ module TitleScene (
 import Game.Scene
 import Game.Sprite
 
-import GameScene
-
 import Control.Lens
 import Control.Monad (when)
 import Control.Monad.IO.Class
 import Control.Monad.State
+import Control.Monad.Except
 import Graphics.Rendering.OpenGL
 import Graphics.Rendering.FTGL
 import qualified Graphics.Rendering.FTGL as FTGL
 import qualified Graphics.UI.GLFW as GLFW
 import System.Random
 
-data TitleSceneState = TitleSceneState {
-                         _title1        :: Sprite
-                       , _title2        :: Sprite
-                       , _enterKeyPressed :: Bool
-                       }
+data SceneState = SceneState {
+                    _title1        :: Sprite
+                  , _title2        :: Sprite
+                  , _enterKeyPressed :: Bool
+                  }
 
-makeLenses '' TitleSceneState
+makeLenses ''SceneState
 
-titleScene :: Scene TitleSceneState ()
-titleScene = Scene {
-             construct = constructTitleScene
-           , keyHandler = keyHandlerTitleScene
-           , stepHandler = stepHandlerTitleScene
-           , drawHandler = drawHandlerTitleScene
-           }
+titleScene :: Scene ()
+titleScene = do
+    s <- liftIO $ initialSceneState
+    makeScene s sceneGen
 
-constructTitleScene :: () -> IO TitleSceneState
-constructTitleScene = const $ do
+initialSceneState :: IO SceneState
+initialSceneState = do
     font <- createExtrudeFont "font/FreeSans.ttf"
     setFontFaceSize font 7 7
     setFontDepth font 1.0
-    return $ TitleSceneState {
+    return $ SceneState {
                _title1 = defaultTextSprite {
                            _spText  = "Snake Game Haskell"
                          , _spColor = Color4 1.0 1.0 1.0 1.0
@@ -59,17 +55,23 @@ constructTitleScene = const $ do
              , _enterKeyPressed = False
              }
 
-keyHandlerTitleScene :: GLFW.Key -> GLFW.KeyState -> GLFW.ModifierKeys -> StateT TitleSceneState IO ()
-keyHandlerTitleScene key _ _ = case key of
+sceneGen :: SceneGen SceneState ()
+sceneGen = SceneGen { keyHandler  = keyHandler'
+                    , stepHandler = stepHandler'
+                    , drawHandler = drawHandler'
+                    }
+
+keyHandler' :: GLFW.Key -> GLFW.KeyState -> GLFW.ModifierKeys -> StateT SceneState IO ()
+keyHandler' key _ _ = case key of
     GLFW.Key'Enter -> enterKeyPressed .= True
     _         -> return ()
 
-stepHandlerTitleScene :: (forall s' i'. Scene s' i' -> i' -> StateT TitleSceneState IO ()) -> Double -> StateT TitleSceneState IO ()
-stepHandlerTitleScene transit dt = do
+stepHandler' :: Double -> ExceptT () (StateT SceneState IO) ()
+stepHandler' dt = do
     gameStart <- use enterKeyPressed
-    when gameStart $ transit gameScene ()
+    when gameStart $ exitScene ()
 
-drawHandlerTitleScene :: (Sprite -> IO ()) -> TitleSceneState -> IO ()
-drawHandlerTitleScene draw state = do
+drawHandler' :: (Sprite -> IO ()) -> SceneState -> IO ()
+drawHandler' draw state = do
     draw $ state ^. title1
     draw $ state ^. title2

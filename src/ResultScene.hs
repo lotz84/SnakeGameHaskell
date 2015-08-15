@@ -8,11 +8,10 @@ module ResultScene (
 import Game.Scene
 import Game.Sprite
 
--- import TitleScene
-
 import Control.Lens
 import Control.Monad (when)
 import Control.Monad.State
+import Control.Monad.Except
 import Graphics.Rendering.OpenGL
 import qualified Graphics.Rendering.FTGL as FTGL
 import qualified Graphics.UI.GLFW as GLFW
@@ -25,16 +24,19 @@ data SceneState = SceneState {
 
 makeLenses '' SceneState
 
-resultScene :: Scene SceneState Int
-resultScene = Scene {
-             construct = construct'
-           , keyHandler = keyHandler'
-           , stepHandler = stepHandler'
-           , drawHandler = drawHandler'
-           }
+resultScene :: Int -> Scene ()
+resultScene score = do
+    s <- liftIO $ initialSceneState score
+    makeScene s sceneGen
 
-construct' :: Int -> IO SceneState
-construct' score = do
+sceneGen :: SceneGen SceneState ()
+sceneGen = SceneGen { keyHandler  = keyHandler'
+                    , stepHandler = stepHandler'
+                    , drawHandler = drawHandler'
+                    }
+
+initialSceneState :: Int -> IO SceneState
+initialSceneState score = do
     font <- FTGL.createExtrudeFont "font/FreeSans.ttf"
     FTGL.setFontFaceSize font 7 7
     FTGL.setFontDepth font 1.0
@@ -61,11 +63,10 @@ keyHandler' key _ _ = case key of
     GLFW.Key'Enter -> enterKeyPressed .= True
     _         -> return ()
 
-stepHandler' :: (forall s' i'. Scene s' i' -> i' -> StateT SceneState IO ()) -> Double -> StateT SceneState IO ()
-stepHandler' transit dt = do
+stepHandler' :: Double -> ExceptT () (StateT SceneState IO) ()
+stepHandler' dt = do
     gameStart <- use enterKeyPressed
-    -- when gameStart $ transit titleScene ()
-    return ()
+    when gameStart $ exitScene ()
 
 drawHandler' :: (Sprite -> IO ()) -> SceneState -> IO ()
 drawHandler' draw state = do
