@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Main where
 
-import Game.Scene
+import GameEngine
 import TitleScene
 import GameScene
 import ResultScene

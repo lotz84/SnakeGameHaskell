@@ -5,8 +5,8 @@ module GameScene (
     gameScene
 ) where
 
-import Game.Scene
-import Game.Sprite
+import GameEngine.Scene
+import GameEngine.Sprite
 
 import Control.Lens
 import Control.Monad (when)

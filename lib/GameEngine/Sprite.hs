@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Game.Sprite (
+module GameEngine.Sprite (
     loadGLTextureFromFile,
     Sprite(..),
     defaultTextSprite,
