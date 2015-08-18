@@ -7,13 +7,15 @@ module GameScene (
 
 import GameEngine.Scene
 import GameEngine.Sprite
+import GameEngine.Sprite.Square
+import GameEngine.Sprite.Label
 
 import Control.Lens
 import Control.Monad (when)
 import Control.Monad.IO.Class
 import Control.Monad.State
 import Control.Monad.Except
-import Graphics.Rendering.OpenGL
+import Graphics.Rendering.OpenGL hiding (position, color)
 import Graphics.Rendering.FTGL
 import qualified Graphics.Rendering.FTGL as FTGL
 import qualified Graphics.UI.GLFW as GLFW
@@ -34,12 +36,12 @@ data SnakeDirection = Stop
 
 data SceneState = SceneState {
                       _stGridSize    :: GLfloat
-                    , _stFeed        :: Sprite
-                    , _stWall        :: [Sprite]
-                    , _stSnake       :: [Sprite]
+                    , _stFeed        :: SquareSprite
+                    , _stWall        :: [SquareSprite]
+                    , _stSnake       :: [SquareSprite]
                     , _stSnakeLength :: Int
                     , _stDirection   :: SnakeDirection
-                    , _stScoreLabel  :: Sprite
+                    , _stScoreLabel  :: LabelSprite
                     }
 
 makeLenses ''SceneState
@@ -57,9 +59,9 @@ sceneGen = SceneGen { keyHandler  = keyHandler'
 
 initialSceneState :: IO SceneState
 initialSceneState = do
-    font <- createExtrudeFont "font/FreeSans.ttf"
-    setFontFaceSize font 7 7
-    setFontDepth font 1.0
+    freeSans <- createExtrudeFont "font/FreeSans.ttf"
+    setFontFaceSize freeSans 7 7
+    setFontDepth freeSans 1.0
     let gridSize    = 20
     let gridSizef   = fromIntegral gridSize
     let gridWidth   = stageWidth `div` gridSize
@@ -70,33 +72,28 @@ initialSceneState = do
     snakeY <- fromIntegral <$> randomRIO (1, gridHeight - 2)
     feedX  <- fromIntegral <$> randomRIO (1, gridWidth - 2)
     feedY  <- fromIntegral <$> randomRIO (1, gridHeight - 2)
-    let snakeHead = defaultSquareSprite {
-                      _spColor = Color4 0.0 1.0 1.0 1.0
-                    , _spPos   = Vertex2 (snakeX * gridSizef) (snakeY * gridSizef)
-                    , _spSize  = Vector2 gridSizef gridSizef
-                    }
+    let snakeHead = configureSprite $ do
+                        color    .= Color4 0.0 1.0 1.0 1.0
+                        position .= Vector3 (snakeX * gridSizef) (snakeY * gridSizef) 0
+                        size     .= Vector3 gridSizef gridSizef 0
     return $ SceneState {
                _stGridSize    = gridSizef
-             , _stFeed        = defaultSquareSprite {
-                                  _spColor = Color4 1.0 0.5 0.5 1.0
-                                , _spPos   = Vertex2 (feedX * gridSizef) (feedY * gridSizef)
-                                , _spSize  = Vector2 gridSizef gridSizef
-                                }
-             , _stWall        = flip map wallPosList $ \(x, y) ->
-                                    defaultSquareSprite {
-                                      _spColor = Color4 0.2 0.0 0.0 1.0
-                                    , _spPos   = Vertex2 (x * gridSizef) (y * gridSizef)
-                                    , _spSize  = Vector2 gridSizef gridSizef
-                                    }
+             , _stFeed        = configureSprite $ do
+                                    color    .= Color4 1.0 0.5 0.5 1.0
+                                    position .= Vector3 (feedX * gridSizef) (feedY * gridSizef) 0
+                                    size     .= Vector3 gridSizef gridSizef 0
+             , _stWall        = flip map wallPosList $ \(x, y) -> configureSprite $ do
+                                    color    .= Color4 0.2 0.0 0.0 1.0
+                                    position .= Vector3 (x * gridSizef) (y * gridSizef) 0
+                                    size     .= Vector3 gridSizef gridSizef 0
              , _stSnake       = [snakeHead]
              , _stSnakeLength = 1
              , _stDirection   = Stop
-             , _stScoreLabel  = defaultTextSprite {
-                                _spText = "Score: 0"
-                              , _spColor = Color4 1.0 1.0 1.0 1.0
-                              , _spFont  = font
-                              , _spPos   = Vertex2 10 5
-                              }
+             , _stScoreLabel  = configureSprite $ do
+                                    text     .= "Score: 0"
+                                    color    .= Color4 1.0 1.0 1.0 1.0
+                                    font     .= freeSans
+                                    position .= Vector3 10 5 0
              }
 
 keyHandler' :: GLFW.Key -> GLFW.KeyState -> GLFW.ModifierKeys -> StateT SceneState IO ()
@@ -122,29 +119,29 @@ stepHandler' dt = do
     direction <- use stDirection
     let snakeHead = head snake
     let spawnSnake = case direction of
-            GoUp    -> Just $ snakeHead & spPos . y +~ gridSizef
-            GoRight -> Just $ snakeHead & spPos . x +~ gridSizef
-            GoDown  -> Just $ snakeHead & spPos . y -~ gridSizef
-            GoLeft  -> Just $ snakeHead & spPos . x -~ gridSizef
+            GoUp    -> Just $ snakeHead & position . y +~ gridSizef
+            GoRight -> Just $ snakeHead & position . x +~ gridSizef
+            GoDown  -> Just $ snakeHead & position . y -~ gridSizef
+            GoLeft  -> Just $ snakeHead & position . x -~ gridSizef
             _       -> Nothing
     snakeLength <- use stSnakeLength
     stSnake .= (take snakeLength $ maybe id (\x -> (x:)) spawnSnake $ snake)
 
     -- Feed Snake
-    snakeHeadPos <- use $ stSnake . to head . spPos
-    feedPos      <- use $ stFeed . spPos
+    snakeHeadPos <- use $ stSnake . to head . position
+    feedPos      <- use $ stFeed . position
     newPos <- if snakeHeadPos /= feedPos
             then return Nothing
             else do
                 snake <- use stSnake
-                let forbidden = map (view spPos) snake
+                let forbidden = map (view position) snake
                 let gridSize = floor $ gridSizef :: Int
                 let gridWidth  = stageWidth `div` gridSize
                 let gridHeight = stageHeight `div` gridSize
                 let newFeedPosition = do
                         feedX <- liftIO $ fromIntegral <$> randomRIO (1, gridWidth - 2)
                         feedY <- liftIO $ fromIntegral <$> randomRIO (1, gridHeight - 2)
-                        let pos = Vertex2 (feedX * gridSizef) (feedY * gridSizef)
+                        let pos = Vector3 (feedX * gridSizef) (feedY * gridSizef) 0
                         if all (pos /=) forbidden
                             then return pos
                             else newFeedPosition
@@ -152,7 +149,7 @@ stepHandler' dt = do
     case newPos of
         Nothing  -> return ()
         Just pos -> do
-            stFeed . spPos .= pos
+            stFeed . position .= pos
             oldLength <- use stSnakeLength
             stSnakeLength .= oldLength + 5
 
@@ -161,15 +158,16 @@ stepHandler' dt = do
     let snakeTail = tail snake
     wall  <- use stWall
     score <- (subtract 1) <$> use stSnakeLength
-    if any ((snakeHead^.spPos)==) (map (view spPos) (snakeTail ++ wall))
+    if any ((snakeHead^.position)==) (map (view position) (snakeTail ++ wall))
         then exitScene score
         else return ()
 
-    stScoreLabel.spText .= ("Score: " ++ show score)
+    stScoreLabel.text .= ("Score: " ++ show score)
 
-drawHandler' :: (Sprite -> IO ()) -> SceneState -> IO ()
-drawHandler' draw state = do
+drawHandler' :: (Int, Int) -> SceneState -> IO ()
+drawHandler' (w, h) state = do
+    let draw = drawInWindow w h
     mapM_ draw $ state ^. stWall
     mapM_ draw $ state ^. stSnake
     draw $ state ^. stFeed
-    draw $ state ^. stScoreLabel
+    drawInWindow w h $ state ^. stScoreLabel

@@ -1,4 +1,3 @@
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module ResultScene (
@@ -7,18 +6,19 @@ module ResultScene (
 
 import GameEngine.Scene
 import GameEngine.Sprite
+import GameEngine.Sprite.Label
 
 import Control.Lens
 import Control.Monad (when)
 import Control.Monad.State
 import Control.Monad.Except
-import Graphics.Rendering.OpenGL
+import Graphics.Rendering.OpenGL hiding (color, position, scale)
 import qualified Graphics.Rendering.FTGL as FTGL
 import qualified Graphics.UI.GLFW as GLFW
 
 data SceneState = SceneState {
-                         _title1        :: Sprite
-                       , _title2        :: Sprite
+                         _title1          :: LabelSprite
+                       , _title2          :: LabelSprite
                        , _enterKeyPressed :: Bool
                        }
 
@@ -37,26 +37,22 @@ sceneGen = SceneGen { keyHandler  = keyHandler'
 
 initialSceneState :: Int -> IO SceneState
 initialSceneState score = do
-    font <- FTGL.createExtrudeFont "font/FreeSans.ttf"
-    FTGL.setFontFaceSize font 7 7
-    FTGL.setFontDepth font 1.0
-    return $ SceneState {
-               _title1 = defaultTextSprite {
-                           _spText  = "Score: " ++ show score
-                         , _spColor = Color4 1.0 1.0 1.0 1.0
-                         , _spFont  = font
-                         , _spScale = 2.0
-                         , _spPos   = Vertex2 240 240
-                         }
-             , _title2 = defaultTextSprite {
-                           _spText  = "Press Enter"
-                         , _spColor = Color4 1.0 1.0 1.0 1.0
-                         , _spFont  = font
-                         , _spScale = 1.0
-                         , _spPos   = Vertex2 260 180
-                         }
-             , _enterKeyPressed = False
-             }
+    freeSans <- FTGL.createExtrudeFont "font/FreeSans.ttf"
+    FTGL.setFontFaceSize freeSans 7 7
+    FTGL.setFontDepth freeSans 1.0
+    return $ SceneState { _title1 = configureSprite $ do
+                                        text     .= ("Score: " ++ show score)
+                                        color    .= Color4 1.0 1.0 1.0 1.0
+                                        font     .= freeSans
+                                        scale    .= 2
+                                        position .= Vector3 240 240 0
+                        , _title2 = configureSprite $ do
+                                        text     .= "Press Enter"
+                                        color    .= Color4 1.0 1.0 1.0 1.0
+                                        font     .= freeSans
+                                        position .= Vector3 260 180 0
+                        , _enterKeyPressed = False
+                        }
 
 keyHandler' :: GLFW.Key -> GLFW.KeyState -> GLFW.ModifierKeys -> StateT SceneState IO ()
 keyHandler' key _ _ = case key of
@@ -68,7 +64,8 @@ stepHandler' dt = do
     gameStart <- use enterKeyPressed
     when gameStart $ exitScene ()
 
-drawHandler' :: (Sprite -> IO ()) -> SceneState -> IO ()
-drawHandler' draw state = do
+drawHandler' :: (Int, Int) -> SceneState -> IO ()
+drawHandler' (w, h) state = do
+    let draw = drawInWindow w h
     draw $ state ^. title1
     draw $ state ^. title2

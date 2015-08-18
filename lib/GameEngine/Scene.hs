@@ -27,7 +27,7 @@ data SceneGen s a = SceneGen { keyHandler  :: GLFW.Key
                                            -> StateT s IO ()
                              , stepHandler :: Double -- the time between steps
                                            -> ExceptT a (StateT s IO) ()
-                             , drawHandler :: (Sprite -> IO ())
+                             , drawHandler :: (Int, Int)
                                            -> s
                                            -> IO ()
                              }
@@ -84,7 +84,7 @@ makeScene gameState sceneGen = do
                             Left result -> return result
                             Right _ -> do
                                 liftIO $ do
-                                    drawHandler sceneGen (drawInWindow width height) s'
+                                    drawHandler sceneGen (width, height) s'
                                     writeIORef stateRef s'
                                     GLFW.swapBuffers window
                                     GLFW.pollEvents

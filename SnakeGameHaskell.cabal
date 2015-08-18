@@ -20,6 +20,9 @@ library
     exposed-modules:     GameEngine
                        , GameEngine.Scene
                        , GameEngine.Sprite
+                       , GameEngine.Sprite.Texture
+                       , GameEngine.Sprite.Square
+                       , GameEngine.Sprite.Label
     default-language:    Haskell2010
 
 
