@@ -1,6 +1,5 @@
 module GameEngine.Sprite (
     Sprite(..)
-  , Colored(..)
   , Physical(..)
   , configureSprite
   , x, y, z
@@ -20,9 +19,6 @@ class Sprite s where
 
 configureSprite :: Sprite s => State s () -> s
 configureSprite state = execState state defaultSprite
-
-class Sprite s => Colored s where
-    color :: Lens' s (Color4 GLfloat)
 
 class Sprite s => Physical s where
     velocity  :: Lens' s (Vector3 GLfloat)

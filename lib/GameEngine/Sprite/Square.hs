@@ -3,6 +3,7 @@ module GameEngine.Sprite.Square (
 ) where
 
 import GameEngine.Sprite
+import GameEngine.Sprite.Colored
 
 import Control.Lens
 import Control.Monad.IO.Class

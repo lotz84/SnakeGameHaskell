@@ -8,15 +8,14 @@ module TitleScene (
 import GameEngine.Scene
 import GameEngine.Sprite
 import GameEngine.Sprite.Label
+import GameEngine.Sprite.Colored
 
 import Control.Lens
 import Control.Monad (when)
 import Control.Monad.IO.Class
 import Control.Monad.State
 import Control.Monad.Except
-import Graphics.Rendering.OpenGL hiding (position, color, scale)
-import Graphics.Rendering.FTGL
-import qualified Graphics.Rendering.FTGL as FTGL
+import Data.Color.Names
 import qualified Graphics.UI.GLFW as GLFW
 import System.Random
 
@@ -34,22 +33,22 @@ titleScene = do
 
 initialSceneState :: IO SceneState
 initialSceneState = do
-    freeSans <- createExtrudeFont "font/FreeSans.ttf"
-    setFontFaceSize freeSans 7 7
-    setFontDepth freeSans 1.0
+    freeSans <- loadFont "font/FreeSans.ttf"
     return $ SceneState {
                _title1 = configureSprite $ do
-                             text     .= "Snake Game Haskell"
-                             color    .= Color4 1.0 1.0 1.0 1.0
-                             font     .= freeSans
-                             scale    .= 2
-                             position .= Vector3 120 240 0
+                             text       .= "Snake Game Haskell"
+                             color      .= white
+                             font       .= freeSans
+                             scale      .= 2
+                             position.x .= 120
+                             position.y .= 240
              , _title2 = configureSprite $ do
-                             text     .= "Press enter"
-                             color    .= Color4 1.0 1.0 1.0 1.0
-                             font     .= freeSans
-                             scale    .= 1.5
-                             position .= Vector3 240 180 0
+                             text       .= "Press enter"
+                             color      .= white
+                             font       .= freeSans
+                             scale      .= 1.5
+                             position.x .= 240
+                             position.y .= 180
              , _enterKeyPressed = False
              }
 

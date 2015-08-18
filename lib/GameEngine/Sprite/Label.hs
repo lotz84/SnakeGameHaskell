@@ -1,13 +1,15 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module GameEngine.Sprite.Label (
-    LabelSprite
+    loadFont
+  , LabelSprite
   , text
   , font
   , scale
 ) where
 
 import GameEngine.Sprite
+import GameEngine.Sprite.Colored
 
 import Control.Lens
 import Control.Monad.IO.Class
@@ -17,6 +19,13 @@ import Foreign.Ptr (nullPtr)
 import Graphics.Rendering.OpenGL hiding (position, color, scale)
 import qualified Graphics.Rendering.OpenGL as GL
 import qualified Graphics.Rendering.FTGL as FTGL
+
+loadFont :: FilePath -> IO FTGL.Font
+loadFont path = do
+    font <- FTGL.createExtrudeFont path
+    FTGL.setFontFaceSize font 7 7
+    FTGL.setFontDepth font 1.0
+    return font
 
 data LabelSprite = LabelSprite { _text     :: String
                                , _color    :: Color4 GLfloat

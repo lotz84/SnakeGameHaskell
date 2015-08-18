@@ -9,15 +9,15 @@ import GameEngine.Scene
 import GameEngine.Sprite
 import GameEngine.Sprite.Square
 import GameEngine.Sprite.Label
+import GameEngine.Sprite.Colored
 
 import Control.Lens
 import Control.Monad (when)
 import Control.Monad.IO.Class
 import Control.Monad.State
 import Control.Monad.Except
-import Graphics.Rendering.OpenGL hiding (position, color)
-import Graphics.Rendering.FTGL
-import qualified Graphics.Rendering.FTGL as FTGL
+import Data.Color
+import Data.Color.Names
 import qualified Graphics.UI.GLFW as GLFW
 import System.Random
 
@@ -35,7 +35,7 @@ data SnakeDirection = Stop
                     deriving (Show, Eq)
 
 data SceneState = SceneState {
-                      _stGridSize    :: GLfloat
+                      _stGridSize    :: Int
                     , _stFeed        :: SquareSprite
                     , _stWall        :: [SquareSprite]
                     , _stSnake       :: [SquareSprite]
@@ -59,41 +59,45 @@ sceneGen = SceneGen { keyHandler  = keyHandler'
 
 initialSceneState :: IO SceneState
 initialSceneState = do
-    freeSans <- createExtrudeFont "font/FreeSans.ttf"
-    setFontFaceSize freeSans 7 7
-    setFontDepth freeSans 1.0
+    freeSans <- loadFont "font/FreeSans.ttf"
     let gridSize    = 20
-    let gridSizef   = fromIntegral gridSize
     let gridWidth   = stageWidth `div` gridSize
     let gridHeight  = stageHeight `div` gridSize
-    let wallPosList =  [(fromIntegral x, fromIntegral y) | x <- [0, gridWidth - 1], y <- [0..gridHeight - 1]]
-                    ++ [(fromIntegral x, fromIntegral y) | y <- [0, gridHeight - 1], x <- [0..gridWidth - 1]]
-    snakeX <- fromIntegral <$> randomRIO (1, gridWidth - 2)
-    snakeY <- fromIntegral <$> randomRIO (1, gridHeight - 2)
-    feedX  <- fromIntegral <$> randomRIO (1, gridWidth - 2)
-    feedY  <- fromIntegral <$> randomRIO (1, gridHeight - 2)
+    let wallPosList =  [(x, y) | x <- [0, gridWidth - 1], y <- [0..gridHeight - 1]]
+                    ++ [(x, y) | y <- [0, gridHeight - 1], x <- [0..gridWidth - 1]]
+    snakeX <- randomRIO (1, gridWidth  - 2)
+    snakeY <- randomRIO (1, gridHeight - 2)
+    feedX  <- randomRIO (1, gridWidth  - 2)
+    feedY  <- randomRIO (1, gridHeight - 2)
     let snakeHead = configureSprite $ do
-                        color    .= Color4 0.0 1.0 1.0 1.0
-                        position .= Vector3 (snakeX * gridSizef) (snakeY * gridSizef) 0
-                        size     .= Vector3 gridSizef gridSizef 0
+                        color      .= cyan
+                        position.x .= fromIntegral (snakeX * gridSize)
+                        position.y .= fromIntegral (snakeY * gridSize)
+                        size.x     .= fromIntegral gridSize
+                        size.y     .= fromIntegral gridSize
     return $ SceneState {
-               _stGridSize    = gridSizef
+               _stGridSize    = gridSize
              , _stFeed        = configureSprite $ do
-                                    color    .= Color4 1.0 0.5 0.5 1.0
-                                    position .= Vector3 (feedX * gridSizef) (feedY * gridSizef) 0
-                                    size     .= Vector3 gridSizef gridSizef 0
-             , _stWall        = flip map wallPosList $ \(x, y) -> configureSprite $ do
-                                    color    .= Color4 0.2 0.0 0.0 1.0
-                                    position .= Vector3 (x * gridSizef) (y * gridSizef) 0
-                                    size     .= Vector3 gridSizef gridSizef 0
+                                    color      .= fromRGB 1.0 0.5 0.5
+                                    position.x .= fromIntegral (feedX * gridSize)
+                                    position.y .= fromIntegral (feedY * gridSize)
+                                    size.x     .= fromIntegral gridSize
+                                    size.y     .= fromIntegral gridSize
+             , _stWall        = flip map wallPosList $ \(wx, wy) -> configureSprite $ do
+                                    color      .= fromRGB 0.2 0.2 0.0
+                                    position.x .= fromIntegral (wx * gridSize)
+                                    position.y .= fromIntegral (wy * gridSize)
+                                    size.x     .= fromIntegral gridSize
+                                    size.y     .= fromIntegral gridSize
              , _stSnake       = [snakeHead]
              , _stSnakeLength = 1
              , _stDirection   = Stop
              , _stScoreLabel  = configureSprite $ do
-                                    text     .= "Score: 0"
-                                    color    .= Color4 1.0 1.0 1.0 1.0
-                                    font     .= freeSans
-                                    position .= Vector3 10 5 0
+                                    text       .= "Score: 0"
+                                    color      .= white
+                                    font       .= freeSans
+                                    position.x .= 10
+                                    position.y .= 5
              }
 
 keyHandler' :: GLFW.Key -> GLFW.KeyState -> GLFW.ModifierKeys -> StateT SceneState IO ()
@@ -112,7 +116,7 @@ keyHandler' key keyState modifierKeys = do
 
 stepHandler' :: Double -> ExceptT Int (StateT SceneState IO) ()
 stepHandler' dt = do
-    gridSizef <- use stGridSize
+    gridSizef <- fromIntegral <$> use stGridSize
 
     -- Move Snake
     snake <- use stSnake
@@ -141,15 +145,16 @@ stepHandler' dt = do
                 let newFeedPosition = do
                         feedX <- liftIO $ fromIntegral <$> randomRIO (1, gridWidth - 2)
                         feedY <- liftIO $ fromIntegral <$> randomRIO (1, gridHeight - 2)
-                        let pos = Vector3 (feedX * gridSizef) (feedY * gridSizef) 0
-                        if all (pos /=) forbidden
+                        let pos = (feedX * gridSizef, feedY * gridSizef)
+                        if all (\f -> ((f^.x) /= fst pos) && ((f^.y) /= snd pos)) forbidden
                             then return pos
                             else newFeedPosition
                 Just <$> newFeedPosition
     case newPos of
         Nothing  -> return ()
-        Just pos -> do
-            stFeed . position .= pos
+        Just (feedX, feedY) -> do
+            stFeed . position.x .= feedX
+            stFeed . position.y .= feedY
             oldLength <- use stSnakeLength
             stSnakeLength .= oldLength + 5
 

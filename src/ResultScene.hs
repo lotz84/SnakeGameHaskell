@@ -7,13 +7,13 @@ module ResultScene (
 import GameEngine.Scene
 import GameEngine.Sprite
 import GameEngine.Sprite.Label
+import GameEngine.Sprite.Colored
 
 import Control.Lens
 import Control.Monad (when)
 import Control.Monad.State
 import Control.Monad.Except
-import Graphics.Rendering.OpenGL hiding (color, position, scale)
-import qualified Graphics.Rendering.FTGL as FTGL
+import Data.Color.Names
 import qualified Graphics.UI.GLFW as GLFW
 
 data SceneState = SceneState {
@@ -22,7 +22,7 @@ data SceneState = SceneState {
                        , _enterKeyPressed :: Bool
                        }
 
-makeLenses '' SceneState
+makeLenses ''SceneState
 
 resultScene :: Int -> Scene ()
 resultScene score = do
@@ -37,20 +37,20 @@ sceneGen = SceneGen { keyHandler  = keyHandler'
 
 initialSceneState :: Int -> IO SceneState
 initialSceneState score = do
-    freeSans <- FTGL.createExtrudeFont "font/FreeSans.ttf"
-    FTGL.setFontFaceSize freeSans 7 7
-    FTGL.setFontDepth freeSans 1.0
+    freeSans <- loadFont "font/FreeSans.ttf"
     return $ SceneState { _title1 = configureSprite $ do
-                                        text     .= ("Score: " ++ show score)
-                                        color    .= Color4 1.0 1.0 1.0 1.0
-                                        font     .= freeSans
-                                        scale    .= 2
-                                        position .= Vector3 240 240 0
+                                        text       .= ("Score: " ++ show score)
+                                        color      .= white
+                                        font       .= freeSans
+                                        scale      .= 2
+                                        position.x .= 240
+                                        position.y .= 240
                         , _title2 = configureSprite $ do
-                                        text     .= "Press Enter"
-                                        color    .= Color4 1.0 1.0 1.0 1.0
-                                        font     .= freeSans
-                                        position .= Vector3 260 180 0
+                                        text       .= "Press Enter"
+                                        color      .= white
+                                        font       .= freeSans
+                                        position.x .= 260
+                                        position.y .= 180
                         , _enterKeyPressed = False
                         }
 
