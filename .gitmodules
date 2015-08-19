@@ -1,0 +1,3 @@
+[submodule "game-engine"]
+	path = game-engine
+	url = git@github.com:lotz84/game-engine.git
